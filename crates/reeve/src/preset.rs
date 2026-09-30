@@ -90,7 +90,10 @@ mod tests {
     fn grav_security_blocks_sensitive_and_allows_media() {
         let n = nginx_security(Framework::Grav);
         assert!(n.contains("/user/(env/[^/]+/)?(accounts|config)/"));
-        assert!(!n.contains("config|env"), "a multisite keeps its themes and plugins under user/env");
+        assert!(
+            !n.contains("config|env"),
+            "a multisite keeps its themes and plugins under user/env"
+        );
         // media extensions get a try_files pass, not a 403
         assert!(n.contains("flac|pdf)$ { try_files"));
         let c = caddy_security(Framework::Grav);
