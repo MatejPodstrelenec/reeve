@@ -25,16 +25,17 @@ pub fn nginx_try_files(fw: Framework) -> &'static str {
 /// like `/user/accounts/…`. Empty for frameworks without specific rules.
 ///
 /// Grav's rules mirror its shipped `webserver-configs/nginx.conf`: block the
-/// VCS/cache/log dirs, the sensitive `user/{accounts,config,env}` folders, and
-/// all of `user/data` except public media uploads, plus scripts under
+/// VCS/cache/log dirs, the sensitive `user/{accounts,config}` folders, and
+/// all of `user/data` except public media uploads (each also inside a
+/// multisite's `user/env/<name>/`, whose other files serve normally), plus scripts under
 /// system/vendor/user and a few root files.
 pub fn nginx_security(fw: Framework) -> &'static str {
     match fw {
         Framework::Grav => {
             r#"        location ~* /(\.git|cache|bin|logs|backup|tests)/.*$ { return 403; }
-        location ~* /user/(accounts|config|env)/.*$ { return 403; }
-        location ~* /user/data/.*\.(jpe?g|png|gif|webp|avif|bmp|ico|mp4|webm|ogg|ogv|mov|mp3|wav|m4a|flac|pdf)$ { try_files $uri =404; }
-        location ~* /user/data/.*$ { return 403; }
+        location ~* /user/(env/[^/]+/)?(accounts|config)/.*$ { return 403; }
+        location ~* /user/(env/[^/]+/)?data/.*\.(jpe?g|png|gif|webp|avif|bmp|ico|mp4|webm|ogg|ogv|mov|mp3|wav|m4a|flac|pdf)$ { try_files $uri =404; }
+        location ~* /user/(env/[^/]+/)?data/.*$ { return 403; }
         location ~* /(system|vendor)/.*\.(txt|xml|md|html|htm|shtml|shtm|json|yaml|yml|php|php2|php3|php4|php5|phar|phtml|pl|py|cgi|twig|sh|bat)$ { return 403; }
         location ~* /user/.*\.(txt|md|json|yaml|yml|php|php2|php3|php4|php5|phar|phtml|pl|py|cgi|twig|sh|bat)$ { return 403; }
         location ~ /(LICENSE\.txt|composer\.lock|composer\.json|nginx\.conf|web\.config|htaccess\.txt|\.htaccess) { return 403; }
@@ -60,9 +61,9 @@ pub fn caddy_security(fw: Framework) -> &'static str {
             // user/data matcher AND-combines a path match with a NOT on media
             // extensions, so public uploads (images/video/pdf) still serve.
             "\t@reeve_grav_dirs path_regexp (?i)^/(\\.git|cache|bin|logs|backups?|tests)/\n\
-             \t@reeve_grav_userconf path_regexp (?i)^/user/(accounts|config|env)/\n\
+             \t@reeve_grav_userconf path_regexp (?i)^/user/(env/[^/]+/)?(accounts|config)/\n\
              \t@reeve_grav_userdata {\n\
-             \t\tpath_regexp (?i)^/user/data/\n\
+             \t\tpath_regexp (?i)^/user/(env/[^/]+/)?data/\n\
              \t\tnot path_regexp (?i)\\.(jpe?g|png|gif|webp|avif|bmp|ico|mp4|webm|ogg|ogv|mov|mp3|wav|m4a|flac|pdf)$\n\
              \t}\n\
              \t@reeve_grav_sys path_regexp (?i)^/(system|vendor)/.*\\.(txt|xml|md|html|htm|shtml|shtm|yaml|yml|php|php2|php3|php4|php5|phar|phtml|pl|py|cgi|twig|sh|bat)$\n\
@@ -88,11 +89,13 @@ mod tests {
     #[test]
     fn grav_security_blocks_sensitive_and_allows_media() {
         let n = nginx_security(Framework::Grav);
-        assert!(n.contains("/user/(accounts|config|env)/"));
+        assert!(n.contains("/user/(env/[^/]+/)?(accounts|config)/"));
+        assert!(!n.contains("config|env"), "a multisite keeps its themes and plugins under user/env");
         // media extensions get a try_files pass, not a 403
         assert!(n.contains("flac|pdf)$ { try_files"));
         let c = caddy_security(Framework::Grav);
-        assert!(c.contains("path_regexp (?i)^/user/(accounts|config|env)/"));
+        assert!(c.contains("path_regexp (?i)^/user/(env/[^/]+/)?(accounts|config)/"));
+        assert!(c.contains("path_regexp (?i)^/user/(env/[^/]+/)?data/"));
         assert!(c.contains("not path_regexp")); // user/data media carve-out
         assert!(c.contains("respond @reeve_grav_userconf 403"));
     }

@@ -418,7 +418,7 @@ mod tests {
         assert!(out.contains(&format!("root {}/dist;\n", base.display())));
         // Backslash and quote escaped; preset override pulled in Grav's rules.
         assert!(out.contains("            fastcgi_param DB_PASS \"p@ss \\\"w\\\" \\\\\\\\\";\n"));
-        assert!(out.contains("/user/(accounts|config|env)/"));
+        assert!(out.contains("/user/(env/[^/]+/)?(accounts|config)/"));
 
         // `$` can't be expressed in an nginx string → clear error naming the file.
         std::fs::write(base.join(".reeve.toml"), "[env]\nDB_PASS = \"pa$$\"\n").unwrap();

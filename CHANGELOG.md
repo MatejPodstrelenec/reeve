@@ -2,6 +2,11 @@
 
 All notable changes to reeve are documented here.
 
+## 1.1.3
+
+### Fixed
+- **Grav multisites served by nginx or Caddy load their themes and plugins.** The Grav security rules refused everything under `user/env/`, which is where a multisite keeps each site's themes, plugins and media, so their CSS, JavaScript and images returned 403. They now block only the `config`, `accounts` and `data` folders inside each `user/env/<name>/`, the same as Grav 2.2.4's own server configs (getgrav/grav#4335). Run `reeve apply` to rewrite existing vhosts.
+
 ## 1.1.2
 
 ### Added
